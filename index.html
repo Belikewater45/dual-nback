@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Dual N-Back</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="home" class="screen active" aria-label="Home">
+    <header class="topbar">
+      <button class="tb" id="btnStats" type="button">Stats</button>
+      <button class="sync-badge" id="syncBadge" type="button" aria-live="polite"></button>
+      <button class="tb" id="btnSettings" type="button">Settings</button>
+    </header>
+    <div class="home-main">
+      <div class="home-left">
+        <div class="circles" id="circles" title="Fallback strikes at this level"></div>
+        <h1 id="modeTitle">Dual 2-Back</h1>
+        <div class="session-info" id="sessionInfo"></div>
+        <div class="analysis" id="analysis"></div>
+        <div class="congrats" id="congrats"></div>
+        <button class="primary" id="btnStart" type="button">Start</button>
+        <div class="today" id="todayLine"></div>
+        <div class="rules" id="rulesLine"></div>
+      </div>
+      <div class="home-right">
+        <h2>Today</h2>
+        <ol class="history" id="historyList"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAY -->
+  <section id="play" class="screen" aria-label="Session">
+    <div class="play-top">
+      <span class="play-title" id="playTitle">Dual 2-Back</span>
+      <span class="remaining" id="remaining"></span>
+      <button class="tb" id="btnStop" type="button">Stop</button>
+    </div>
+    <button class="answer" id="btnA" data-mod="position1" type="button"><span class="key">A</span><span class="lbl">position</span></button>
+    <div class="field-wrap">
+      <div class="field" id="field">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell center"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <i class="gl v1"></i><i class="gl v2"></i><i class="gl h1"></i><i class="gl h2"></i>
+        <i class="cross ch"></i><i class="cross cv"></i>
+      </div>
+    </div>
+    <button class="answer" id="btnL" data-mod="audio" type="button"><span class="key">L</span><span class="lbl">audio</span></button>
+    <div class="overlay" id="pauseOverlay" hidden>
+      <div class="panel">
+        <h2>Paused</h2>
+        <button class="primary" id="btnResume" type="button">Resume</button>
+        <button class="secondary" id="btnQuit" type="button">Quit session</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats" class="screen" aria-label="Stats">
+    <header class="topbar">
+      <button class="tb" data-go="home" type="button">‹ Back</button>
+      <span class="tb-title">Stats</span>
+      <span class="tb-spacer"></span>
+    </header>
+    <div class="scroll">
+      <div class="tiles" id="tiles"></div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Daily score</div>
+            <div class="chart-sub">N-back level + progress toward the next level (Brain Workshop's default graph)</div>
+          </div>
+          <div class="legend"><span class="lg s1"></span>Average <span class="lg s2"></span>Best</div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chart" aria-label="Daily average and best score chart"></canvas>
+          <div class="tooltip" id="chartTip" hidden></div>
+        </div>
+        <div class="range" id="rangeBtns">
+          <button type="button" data-days="30">30 days</button>
+          <button type="button" data-days="90">90 days</button>
+          <button type="button" data-days="365">1 year</button>
+          <button type="button" data-days="0">All</button>
+        </div>
+      </div>
+      <h2 class="sec">All sessions</h2>
+      <div class="table-wrap">
+        <table class="sessions">
+          <thead><tr><th>Date</th><th>Level</th><th>Score</th><th>Pos</th><th>Aud</th><th>Trial</th></tr></thead>
+          <tbody id="sessionRows"></tbody>
+        </table>
+      </div>
+      <button class="secondary" id="btnMoreRows" type="button" hidden>Show more</button>
+      <h2 class="sec">Backup &amp; import</h2>
+      <div class="data-btns">
+        <button class="secondary" id="btnExport" type="button">Export backup file</button>
+        <label class="secondary filebtn">Import file…<input type="file" id="fileImport" accept=".json,.txt,.csv,text/plain,application/json"></label>
+      </div>
+      <p class="note">Import accepts this app's backup file, or Brain Workshop's <b>stats.txt</b> (Dual N-Back sessions are imported; duplicates are skipped).</p>
+      <p class="msg" id="importMsg"></p>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings" class="screen" aria-label="Settings">
+    <header class="topbar">
+      <button class="tb" data-go="home" type="button">‹ Back</button>
+      <span class="tb-title">Settings</span>
+      <span class="tb-spacer"></span>
+    </header>
+    <div class="scroll" id="settingsBody"></div>
+  </section>
+
+</div>
+<script src="engine.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
