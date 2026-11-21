@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const E = window.DNB;
-  const VERSION = '1.0.2';
+  const VERSION = '1.0.3';
   const $ = (id) => document.getElementById(id);
 
   /* ---------------- storage ---------------- */
@@ -46,10 +46,10 @@
   async function loadLetters() {
     const fails = [];
     for (const L of E.LETTERS) {
-      if (!letterEl[L]) { const a = new Audio('sounds/' + L + '.wav'); a.preload = 'auto'; letterEl[L] = a; }
+      if (!letterEl[L]) { const a = new Audio(L + '.wav'); a.preload = 'auto'; letterEl[L] = a; }
       if (letterBuf[L] || !actx) continue;
       try {
-        const r = await fetch('sounds/' + L + '.wav');
+        const r = await fetch(L + '.wav');
         if (!r.ok) throw new Error('HTTP ' + r.status);
         letterBuf[L] = await decode(await r.arrayBuffer());
       } catch (e) { fails.push(L.toUpperCase() + ' (' + ((e && e.message) || 'decode failed') + ')'); }
@@ -73,7 +73,7 @@
     } catch (e) { audioNote = 'Web Audio unavailable: ' + ((e && e.message) || e); }
     // also unlock the HTML audio fallback elements within the gesture
     for (const L of E.LETTERS) {
-      if (!letterEl[L]) { const a = new Audio('sounds/' + L + '.wav'); a.preload = 'auto'; letterEl[L] = a; }
+      if (!letterEl[L]) { const a = new Audio(L + '.wav'); a.preload = 'auto'; letterEl[L] = a; }
     }
     const resumed = actx && actx.state !== 'running' ? actx.resume().catch(() => {}) : Promise.resolve();
     return Promise.all([resumed, loadLetters()]);
@@ -103,7 +103,7 @@
   async function playFile(name) {
     if (!actx) return;
     try {
-      const ab = await (await fetch('music/' + name + '.ogg')).arrayBuffer();
+      const ab = await (await fetch(name + '.ogg')).arrayBuffer();
       const buf = await actx.decodeAudioData(ab);
       if (session.started) return;
       const src = actx.createBufferSource(); src.buffer = buf; src.connect(musicGain); src.start();

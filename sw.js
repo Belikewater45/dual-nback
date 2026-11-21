@@ -1,6 +1,6 @@
 /* Offline cache. Core files are required; music is saved best-effort so a
  * slow or failed music download can never stop the app working offline. */
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const CACHE = 'dnb-' + VERSION;
 const CORE = [
   "./",
@@ -10,30 +10,30 @@ const CORE = [
   "sync.js",
   "style.css",
   "manifest.webmanifest",
-  "img/square.png",
-  "icons/icon-192.png",
-  "icons/icon-512.png",
-  "icons/icon-maskable-512.png",
-  "sounds/c.wav",
-  "sounds/h.wav",
-  "sounds/k.wav",
-  "sounds/l.wav",
-  "sounds/q.wav",
-  "sounds/r.wav",
-  "sounds/s.wav",
-  "sounds/t.wav"
+  "square.png",
+  "icon-192.png",
+  "icon-512.png",
+  "icon-maskable-512.png",
+  "c.wav",
+  "h.wav",
+  "k.wav",
+  "l.wav",
+  "q.wav",
+  "r.wav",
+  "s.wav",
+  "t.wav"
 ];
 const OPTIONAL = [
-  "music/advance_Concert.ogg",
-  "music/advance_Hot_Swing.ogg",
-  "music/advance_Victory.ogg",
-  "music/applause.ogg",
-  "music/good_Corncob.ogg",
-  "music/good_Emptiness.ogg",
-  "music/good_Sea_Song.ogg",
-  "music/great_Butterfly_Tea_-_Cavern_of_Time.ogg",
-  "music/great_Human_Beat.ogg",
-  "music/great_Lachaim.ogg"
+  "advance_Concert.ogg",
+  "advance_Hot_Swing.ogg",
+  "advance_Victory.ogg",
+  "applause.ogg",
+  "good_Corncob.ogg",
+  "good_Emptiness.ogg",
+  "good_Sea_Song.ogg",
+  "great_Butterfly_Tea_-_Cavern_of_Time.ogg",
+  "great_Human_Beat.ogg",
+  "great_Lachaim.ogg"
 ];
 // cache:'reload' skips the browser's HTTP cache so an update never saves stale files
 const fresh = (u) => new Request(u, { cache: 'reload' });
