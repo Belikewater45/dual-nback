@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const E = window.DNB;
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.2';
   const $ = (id) => document.getElementById(id);
 
   /* ---------------- storage ---------------- */
@@ -38,30 +38,61 @@
 
   /* ---------------- audio ---------------- */
   let actx = null, master = null, musicGain = null, musicNode = null;
-  const letterBuf = {}, rawLetters = {};
-  E.LETTERS.forEach((L) => {
-    rawLetters[L] = fetch('sounds/' + L + '.webm').then((r) => r.arrayBuffer()).catch(() => null);
-  });
-  async function initAudio() {
-    if (!actx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      actx = new AC({ latencyHint: 'interactive' });
-      master = actx.createGain(); master.connect(actx.destination);
-      musicGain = actx.createGain(); musicGain.connect(actx.destination);
-    }
-    master.gain.value = S().volume;
-    musicGain.gain.value = S().musicVolume;
-    if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
+  const letterBuf = {}, letterEl = {};
+  let audioNote = '';
+  function decode(ab) { // promise + callback form, for older Android WebViews
+    return new Promise((res, rej) => { const p = actx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+  }
+  async function loadLetters() {
+    const fails = [];
     for (const L of E.LETTERS) {
-      if (letterBuf[L]) continue;
-      const ab = await rawLetters[L];
-      if (ab) { try { letterBuf[L] = await actx.decodeAudioData(ab.slice(0)); } catch (e) {} }
+      if (!letterEl[L]) { const a = new Audio('sounds/' + L + '.wav'); a.preload = 'auto'; letterEl[L] = a; }
+      if (letterBuf[L] || !actx) continue;
+      try {
+        const r = await fetch('sounds/' + L + '.wav');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        letterBuf[L] = await decode(await r.arrayBuffer());
+      } catch (e) { fails.push(L.toUpperCase() + ' (' + ((e && e.message) || 'decode failed') + ')'); }
     }
+    audioNote = fails.length ? 'Could not load: ' + fails.join(', ') : '';
+  }
+  /* Call directly inside a tap/click handler: Android only lets audio start from a user gesture. */
+  function initAudio() {
+    try {
+      if (!actx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        actx = new AC({ latencyHint: 'interactive' });
+        master = actx.createGain(); master.connect(actx.destination);
+        musicGain = actx.createGain(); musicGain.connect(actx.destination);
+      }
+      master.gain.value = S().volume;
+      musicGain.gain.value = S().musicVolume;
+      // unlock: play one silent sample synchronously within the gesture
+      const sb = actx.createBuffer(1, 1, 22050), src = actx.createBufferSource();
+      src.buffer = sb; src.connect(actx.destination); src.start(0);
+    } catch (e) { audioNote = 'Web Audio unavailable: ' + ((e && e.message) || e); }
+    // also unlock the HTML audio fallback elements within the gesture
+    for (const L of E.LETTERS) {
+      if (!letterEl[L]) { const a = new Audio('sounds/' + L + '.wav'); a.preload = 'auto'; letterEl[L] = a; }
+    }
+    const resumed = actx && actx.state !== 'running' ? actx.resume().catch(() => {}) : Promise.resolve();
+    return Promise.all([resumed, loadLetters()]);
+  }
+  function audioReady() {
+    const n = E.LETTERS.filter((L) => letterBuf[L]).length;
+    if (actx && actx.state === 'running' && n === 8) return { ok: true, text: 'Sound ready (8 of 8 letters loaded).' };
+    if (n === 8) return { ok: true, text: 'Sound ready (backup player; audio engine state: ' + (actx ? actx.state : 'none') + ').' };
+    return { ok: false, text: 'Sound problem: ' + n + ' of 8 letters loaded. ' + audioNote };
   }
   function playLetter(i) {
-    const b = letterBuf[E.LETTERS[i - 1]];
-    if (!actx || !b) return;
-    const src = actx.createBufferSource(); src.buffer = b; src.connect(master); src.start();
+    const L = E.LETTERS[i - 1], b = letterBuf[L];
+    if (actx && actx.state === 'running' && b) {
+      const src = actx.createBufferSource(); src.buffer = b; src.connect(master); src.start();
+      return;
+    }
+    if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+    const el = letterEl[L]; // fallback: plain HTML audio
+    if (el) { try { el.volume = Math.max(0, Math.min(1, S().volume)); el.currentTime = 0; el.play().catch(() => {}); } catch (e) {} }
   }
   const MUSIC = {
     advance: ['advance_Concert', 'advance_Hot_Swing', 'advance_Victory'],
@@ -113,7 +144,8 @@
 
   async function startSession() {
     if (session.started) return;
-    await initAudio();
+    const audioP = initAudio(); // must start inside the tap
+    await audioP;
     stopMusic();
     const st = state();
     const s = S();
@@ -127,6 +159,8 @@
       t0: performance.now(), processed: 0, startedAt: Date.now()
     });
     $('playTitle').textContent = 'Dual ' + st.n + '-Back';
+    const ar = audioReady();
+    $('soundWarn').textContent = ar.ok ? '' : ar.text;
     $('field').classList.remove('hidecross');
     hideSquare(); resetInput(); renderRemaining();
     $('pauseOverlay').hidden = true;
@@ -519,6 +553,15 @@
     row._paint = () => { r.value = S()[key]; };
     return row;
   }
+  function soundTestRow() {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<div class="lab"><div class="t">Test sound</div><div class="d" id="soundDetail">Plays the letter C. If you hear nothing, raise the phone\'s media volume.</div></div>' +
+      '<button class="secondary" type="button" id="btnSoundTest">Play</button>';
+    row.querySelector('button').addEventListener('click', () => {
+      initAudio().then(() => { playLetter(1); const d = $('soundDetail'); if (d) d.textContent = audioReady().text + ' If you hear nothing, raise the media volume.'; });
+    });
+    return row;
+  }
   let paintables = [];
   function paintAll() { paintables.forEach((r) => r._paint && r._paint()); }
   function group(title, rows) {
@@ -556,6 +599,7 @@
     ]));
     body.appendChild(group('Feedback & sound', [
       switchRow('Show feedback', 'Buttons flash green (correct), red (wrong), blue (missed).', 'feedback'),
+      soundTestRow(),
       sliderRow('Letter volume', 'volume'),
       switchRow('Music after sessions', null, 'music'),
       switchRow('Applause on level up', null, 'applause'),
@@ -565,6 +609,11 @@
       switchRow('Black background', null, 'dark'),
       switchRow('Keep screen on during sessions', null, 'keepAwake')
     ]));
+    const og = document.createElement('div'); og.className = 'group';
+    og.innerHTML = '<h3>Offline</h3><div class="row"><div class="lab"><div class="t">Offline status</div><div class="d" id="offlineDetail"></div></div>' +
+      '<button class="secondary" type="button" id="btnOfflineCheck">Check</button></div>';
+    body.appendChild(og);
+    setTimeout(() => { paintOffline(); $('btnOfflineCheck').onclick = checkOffline; });
     body.appendChild(syncGroup());
     const about = document.createElement('div'); about.className = 'group';
     about.innerHTML = '<h3>About</h3><div class="row"><div class="lab"><div class="t">Dual N-Back ' + VERSION + '</div>' +
@@ -741,11 +790,44 @@
   window.addEventListener('resize', () => { if (document.querySelector('.screen.active').id === 'stats') drawChart(); });
   setInterval(() => { if (!session.started) renderSyncBadge(); }, 30000);
 
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  /* ---------------- offline readiness ---------------- */
+  let offline = { state: 'checking', text: 'Checking…' };
+  function setOffline(state, text) { offline = { state, text }; paintOffline(); }
+  function paintOffline() {
+    const h = $('offlineLine');
+    if (h) { h.textContent = offline.state === 'ready' ? '' : offline.text; h.className = 'offline-line ' + offline.state; }
+    const d = $('offlineDetail'); if (d) d.textContent = offline.text;
   }
+  function checkOffline() {
+    if (!('serviceWorker' in navigator)) return setOffline('bad', 'Offline mode is not supported in this browser. Use Chrome.');
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') return setOffline('bad', 'Offline mode needs the https:// GitHub Pages address.');
+    const c = navigator.serviceWorker.controller;
+    if (!c) return setOffline('wait', 'Not ready for offline yet. Keep the app open with signal for a minute, then close and reopen it.');
+    c.postMessage('status');
+  }
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      const m = e.data || {};
+      if (m.type !== 'status') return;
+      if (m.coreMissing.length) setOffline('wait', 'Not ready for offline: ' + m.coreMissing.length + ' required file(s) not saved yet (' + m.coreMissing.slice(0, 3).join(', ') + '). Reopen the app with signal.');
+      else setOffline('ready', 'Ready for offline use (v' + m.version + ', ' + (m.total - m.missing.length) + ' of ' + m.total + ' files saved' + (m.missing.length ? '; some music missing' : '') + ').');
+    });
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // a new version took over: reload once so this screen runs it, unless mid-session
+      if (reloaded) return;
+      if (session.started) { setTimeout(checkOffline, 500); return; }
+      if (hadController) { reloaded = true; location.reload(); } else setTimeout(checkOffline, 500);
+    });
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      reg.update().catch(() => {});
+      navigator.serviceWorker.ready.then(() => setTimeout(checkOffline, 300));
+    }).catch((err) => setOffline('bad', 'Offline setup failed: ' + (err && err.message || err)));
+    setTimeout(checkOffline, 200);
+  } else setOffline('bad', 'Offline mode is not available here.');
 
-  window.__dnb = { session, data: () => data, state, update, setSetting, E }; // for testing
+  window.__dnb = { audioReady, session, data: () => data, state, update, setSetting, E }; // for testing
   showScreen('home');
   requestSync(800);
 })();
